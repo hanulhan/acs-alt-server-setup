@@ -1,7 +1,7 @@
 #!/bin/bash -eux
 
 MOUNTPOINT=/mnt/s3
-PATH_TO_FILE=/home/ubuntu/acs-server-setup
+PATH_TO_FILE=/home/ubuntu/acs-alt-server-setup
 PATH_TO_SCRIPT=$PATH_TO_FILE/acs-server-setup.sh
 LOGFILE=$PATH_TO_FILE/acs-server-setup.log
 UPDATE_STATE_FILE=$PATH_TO_FILE/update-state.txt
