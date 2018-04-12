@@ -1,0 +1,8 @@
+*.log
+update-state.txt
+*.bak
+*.tar
+*.gz
+*.war
+UPDATE_FINISHED
+

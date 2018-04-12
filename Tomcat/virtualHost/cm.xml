@@ -1,0 +1,5 @@
+<Context path="/cm"
+        docBase="/mnt/efs/data/contentmanager"
+        caseSensitive="false"
+/>
+

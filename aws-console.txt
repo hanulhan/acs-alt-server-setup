@@ -1,0 +1,5 @@
+aws cloudformation create-stack --stack-name uli-ec5 --profile awsTest --capabilities=CAPABILITY_IAM --template-body file://acs-server.yml
+aws cloudformation --profile=awsTest delete-stack --stack-name uli-ec5
+aws cloudformation delete-stack --stack-name uli-ec2 --profile=awsTest
+
+aws s3 cp acs-server-setup.tar.gz s3://acentic-playground-useast1 --profile awsTest

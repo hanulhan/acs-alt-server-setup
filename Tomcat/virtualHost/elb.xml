@@ -1,0 +1,4 @@
+<Context path="/elb"
+        docBase="/mnt/efs/data/elb"
+        caseSensitive="false"
+/>

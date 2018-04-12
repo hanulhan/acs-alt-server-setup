@@ -1,0 +1,5 @@
+<Context path="/conferencemanager"
+        docBase="/mnt/efs/data/conferencemanager"
+        caseSensitive="false"
+/>
+

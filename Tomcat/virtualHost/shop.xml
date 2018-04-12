@@ -1,0 +1,5 @@
+<Context path="/shop"
+        docBase="/mnt/efs/data/shop"
+        caseSensitive="false"
+/>
+
