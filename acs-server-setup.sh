@@ -171,7 +171,11 @@ case $UPDATE_STATE in
    fi
 
    doLog "==> 2.7 swap file "
-   echo "/swapfile               none     swap   sw                      0 0" >> /etc/fstab
+   if [ ! -f "/etc/fstab.001" ];
+   then
+       cp /etc/fstab /etc/fstab.001
+       echo "/swapfile               none     swap   sw                      0 0" >> /etc/fstab
+   fi
 
    setUpdateState 6
    sleep 2
