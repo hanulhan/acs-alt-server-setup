@@ -90,6 +90,8 @@ case $UPDATE_STATE in
    if [[ $DISTRIB_RELEASE == 16.04 ]]; then
       systemctl disable apt-daily.service # disable run when system boot
       systemctl disable apt-daily.timer   # disable timer run
+   else
+      echo "Not $DISTRIB_RELEASE"
    fi
    
 
@@ -155,6 +157,8 @@ case $UPDATE_STATE in
        echo "net.ipv6.conf.default.disable_ipv6=1" >> /etc/sysctl.conf
        echo "net.ipv6.conf.lo.disable_ipv6=2"      >> /etc/sysctl.conf
        sysctl -p
+   else
+       echo "ipv6 already disabled"
    fi
 
    doLog "==> 2.7 swap file "
@@ -169,23 +173,27 @@ case $UPDATE_STATE in
 
    doLogUpdateState "UPDATE-STATE 6: 2.10 Java"
    
-   if ! package_exists openjdk-8-jdk; then
-      apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install openjdk-8-jdk
+   PACKAGE=openjdk-8-jdk
+   if ! package_exists $PACKAGE; then
+      apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install $PACKAGE
+   else
+       echo "$PACKAGE already installed"
    fi
-   
-   #if ! package_exists openjdk-7-jdk; then
-      #add-apt-repository -y ppa:openjdk-r/ppa
-      #apt-get -y update
-      #apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install openjdk-7-jdk
-   #fi
+  
+
    setUpdateState 7
    ;&      # Fall through
 
 7) # Installation step 7: nfs-common
 
    doLogUpdateState "UPDATE-STATE 7: 2.11 nfs common"
-   apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install nfs-common
-
+   PACKAGE=nfs-common
+   if ! package_exists $PACKAGE; then
+      apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install $PACKAGE
+   else
+       echo "$PACKAGE already installed"
+   fi
+   
    setUpdateState 8
    ;&      # Fall through
 
@@ -203,8 +211,11 @@ case $UPDATE_STATE in
       useradd  --system --uid $TOMCAT7_USER_ID --gid $TOMCAT7_GROUP_ID tomcat7
    fi   
    
-   if ! package_exists tomcat7; then
-      apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install tomcat7
+   PACKAGE=tomcat7
+   if ! package_exists $PACKAGE; then
+      apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install $PACKAGE
+   else
+       echo "$PACKAGE already installed"
    fi
    setUpdateState 9
    ;&      # Fall through
@@ -222,11 +233,8 @@ case $UPDATE_STATE in
    cp $PATH_TO_FILE/Tomcat/conf/*.xml /var/lib/tomcat7/conf/
    chown -R root:tomcat7 /var/lib/tomcat7/conf/*.xml
 
-   cp $PATH_TO_FILE/Tomcat/lib/*.jar /usr/share/tomcat7/lib/
-   
    cp $PATH_TO_FILE/Tomcat/conf/setenv.sh /usr/share/tomcat7/bin
    chmod +x /usr/share/tomcat7/bin/setenv.sh
-   
    
    mkdir /home/ubuntu/keystore
    cp $KEYSTORE_FILE /home/ubuntu/keystore
@@ -234,57 +242,104 @@ case $UPDATE_STATE in
    
    cp $PATH_TO_FILE/Tomcat/virtualHost/*.xml /var/lib/tomcat7/conf/Catalina/localhost/
    
- 
-
-   touch /etc/authbind/byport/80
-   touch /etc/authbind/byport/443
-   chmod 500 /etc/authbind/byport/80
-   chmod 500 /etc/authbind/byport/443
-   chown tomcat7 /etc/authbind/byport/80
-   chown tomcat7 /etc/authbind/byport/443
-
-   
    echo '<% response.sendRedirect("/ACS"); %>' >  /var/lib/tomcat7/webapps/ROOT/index.jsp   
 
+   if [ ! -d "/var/log/tomcat7" ];
+   then
+        mkdir /var/log/tomcat7
+   fi
+   
+   chown tomcat7:tomcat7 /var/log/tomcat7
+   ls -s /var/log/tomcat7 /var/lib/tomcat7
+   chown -h /var/lib/tomcat7
    
    setUpdateState 10
    ;&
 
 10)
-   doLogUpdateState "UPDATE-State 10: cron"
+   doLogUpdateState "UPDATE-State 10: Tomcat libs"
+
+   cp $PATH_TO_FILE/Tomcat/lib/*.jar /usr/share/tomcat7/lib/
+   chown tomcat7:tomcat7 /usr/share/tomcat7/lib/cas-client-core*
+   chown tomcat7:tomcat7 /usr/share/tomcat7/lib/session-userPreferences*
+   chown tomcat7:tomcat7 /usr/share/tomcat7/lib/slf4j-api*
+   chown tomcat7:tomcat7 /usr/share/tomcat7/lib/tomcat-catalina-jmx-remote*
+   
+   setUpdateState 13
+   ;&
+
+13)
+   doLogUpdateState "UPDATE-State 13: port freigabe"
+   if [ ! -f "/etc/authbind/byport/80" ];
+   then
+      touch /etc/authbind/byport/80
+      chmod 500 /etc/authbind/byport/80
+      chown tomcat7 /etc/authbind/byport/80
+   else
+      echo "authbind for port 80 already exists"
+   fi
+
+   if [ ! -f "/etc/authbind/byport/443" ];
+   then
+      touch /etc/authbind/byport/443
+      chmod 500 /etc/authbind/byport/443
+      chown tomcat7 /etc/authbind/byport/443
+   else
+      echo "authbind for port 443 already exists"
+   fi
+  
+   setUpdateState 15
+   ;&   
+
+15)
+   doLogUpdateState "UPDATE-State 15: cron"
 
    doLog "==> delete crontab for ubuntu"
    crontab -r || true		# ignore error message
 
 
    doLog "==> 2.4 Allow root only to add cron job"
-   echo "root" > /etc/cron.allow
-   echo "deamon
-         bin
-         smtp
-         deamon
-         nuucp
-         listen
-         nobody
-         noaccess
-         tomcat7
-         ubunt" > /etc/cron.deny
-  
-   setUpdateState 11
+
+   if [ ! -f "/etc/cron.allow" ];
+   then   
+       echo "root" > /etc/cron.allow
+   else
+      echo "/etc/cron.allow already exists"
+   fi
+
+   if [ ! -f "/etc/cron.deny" ];
+   then   
+      echo "deamon
+            bin
+            smtp
+            deamon
+            nuucp
+            listen
+            nobody
+            noaccess
+            tomcat7
+            ubunt" > /etc/cron.deny
+   else
+      echo "/etc/cron.deny already exists"
+   fi
+
+   setUpdateState 17
    ;&
 
-11)
-   doLogUpdateState "UPDATE-State 10: fonts"
+17)
+   doLogUpdateState "UPDATE-State 17: fonts"
 
-   package=ttf-mscorefonts-installe
-   if ! package_exists $package; then
-      apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install $package
+   PACKAGE=ttf-mscorefonts-installer
+   if ! package_exists $PACKAGE; then
+      apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install $PACKAGE
+   else
+      echo "$PACKAGE already exists"
    fi
   
-   setUpdateState 15
+   setUpdateState 20
    ;&
 
-15)
+20)
    doLogUpdateState "UPDATE-State 10: mount"
    
    #doLog "==> Mount s3 again"
