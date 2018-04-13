@@ -430,6 +430,7 @@ case $UPDATE_STATE in
    if [ ! -d "/mnt/efs/data/fonts" ];
    then
        mkdir /mnt/efs/data/fonts
+       chown tomcat7:tomcat7 /mnt/efs/data/fonts
        fc-cache -f /mnt/efs/data/fonts
    fi
    
