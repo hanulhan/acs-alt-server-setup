@@ -1,0 +1,4 @@
+/swapfile               none     swap   sw                      0 0
+fs-88941b41.efs.eu-west-1.amazonaws.com:/ /mnt/efs  nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0
+s3fs#acentic-hoteldata /mnt/data fuse _netdev,allow_other,iam_role=FullAccessBigDataAndHoteldataEC2only 0 0
+s3fs#acentic-bigdata /mnt/bigdata fuse _netdev,allow_other,iam_role=FullAccessBigDataAndHoteldataEC2only 0 0

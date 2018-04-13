@@ -41,6 +41,28 @@ function package_exists() {
     return $?    
 }
 
+# $1 old uid
+# $2 new uid
+function changeUid () {
+   local user=$( getent passwd "$1" | cut -d: -f1 )
+   usermod -u $NEW_ID $user
+   #find / -user $OLD_ID -exec chown -h $NEW_ID {} \;
+   echo $user
+}
+
+
+# $1 old guid
+# $2 new guid
+# $3 user
+function changeGid () {
+   local group=$( getent group "$1" | cut -d: -f1 )
+   groupmod -g $NEW_GROUP $group
+   #find / -user $OLD_ID -exec chown -h $NEW_ID {} \;
+   usermod -g $NEW_GROUP $user
+   echo $group
+}
+
+
 #Check if Logfile already exists. 
 if [ ! -f $LOGFILE ];
 then
@@ -70,7 +92,7 @@ case $UPDATE_STATE in
 
 
 1) #Installation step 1. Update packages
-   doLogUpdateState "UPDATE-STATE 1: Update packages list"
+   doLogUpdateState "UPDATE-STATE $UPDATE_STATE: Update packages list"
 
 
    # install cronjob to procede execution after restart
@@ -115,22 +137,29 @@ case $UPDATE_STATE in
    ;&
 
 2) # Installation step 2: Ubuntu installation 1
-   doLogUpdateState "UPDATE-STATE 2: Ubunut installation 1"
+   doLogUpdateState "UPDATE-STATE $UPDATE_STATE: bashrc and vimrc"
 
-   doLog "==> 2.1.1 Edit .bashrc"
-   cat $PATH_TO_FILE/bashrc >> /home/ubuntu/.bashrc
+   if [ ! -f "/home/ubuntu/.bashrc.001" ];
+   then
+       cp /home/ubuntu/.bashrc /home/ubuntu/.bashrc.001
+       cat $PATH_TO_FILE/bashrc >> /home/ubuntu/.bashrc
+   fi
+   
+   if [ ! -f "/home/ubuntu/.vimrc" ];
+   then
+       echo "colorscheme desert" > /home/ubuntu/.vimrc
+   fi
+
+   
    setUpdateState 3
    ;&   # Fall through
 
 
 3) # Installation step 3: Ubuntu installation 2
 
+   doLogUpdateState "UPDATE-STATE $UPDATE_STATE: Ubuntu installation 2"
 
-   doLogUpdateState "UPDATE-STATE 3: Ubuntu installation 2"
-   doLog "==> 2.1.2 Edit vi colorscheme"
-   echo "colorscheme desert" > /home/ubuntu/.vimrc
-
-   doLog "==> 2.2 change user rights for curl and wget"
+   doLog "change user rights for curl and wget"
    chmod 744 /usr/bin/curl
    chmod 744 /usr/bin/wget
 
@@ -139,16 +168,7 @@ case $UPDATE_STATE in
 
 4) # Installation step 4: Ubuntu installation 3
 
-   doLogUpdateState "UPDATE-STATE 4: Ubuntu installation 3"
-   doLog "==> 2.3 install s3 mount"
-  
-   setUpdateState 5
-   ;&   # Fall through
-
-
-5) # Installation step 5: Ubuntu installaion 4
-
-   doLogUpdateState "UPDATE-STATE 5: Ubuntu installation 4"
+   doLogUpdateState "UPDATE-STATE 4: disable ipv6"
    
    if [ $( cat /proc/sys/net/ipv6/conf/all/disable_ipv6) -ne 1 ];
    then
@@ -159,19 +179,89 @@ case $UPDATE_STATE in
        sysctl -p
    else
        echo "ipv6 already disabled"
-   fi
+   fi   
 
-   doLog "==> 2.7 swap file "
-   echo "/swapfile               none     swap   sw                      0 0" >> /etc/fstab
 
+   setUpdateState 8
+   ;&   # Fall through
+   
+5) # Installation step 5: install s3fs
+
+   doLogUpdateState "UPDATE-STATE 5: install packages for s3fs"
+   
+   PACKAGE=automake autotools-dev fuse g++ git libcurl4-gnutls-dev libfuse-dev libssl-dev libxml2-dev make pkg-config
+   apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install $PACKAGE
    setUpdateState 6
+   ;&   # Fall through
+
+6) # Installation step 6:
+
+   doLogUpdateState "UPDATE-STATE 6: make s3fs"
+
+   #if [ ! -d "/home/ubuntu/s3fs-fuse" ];
+   #then   
+       cd s3fs-fuse
+       ./autogen.sh
+       ./configure
+       make
+       make install
+   #fi
+
+   setUpdateState 7
+   ;&   # Fall through
+
+7) # Installation step 7:
+
+   doLogUpdateState "UPDATE-STATE 7: create user and group for tomcat7"
+   if [ ! $(cat /etc/group | grep -i 'tomcat7') ];
+   then
+      groupadd --system --gid $TOMCAT7_GROUP_ID tomcat7
+   fi
+   if [ ! $(cat /etc/passwd | grep -i 'tomcat7') ];
+   then
+      useradd  --system --uid $TOMCAT7_USER_ID --gid $TOMCAT7_GROUP_ID tomcat7
+   fi
+   setUpdateState 8
+   ;&   # Fall through
+   
+8) # Installation step 8:
+
+   doLogUpdateState "UPDATE-STATE 8: mount"
+
+   if [ ! -d "/mnt/data" ];
+   then
+       mkdir /mnt/data
+   fi   
+   if [ ! -d "/mnt/bigdata" ];
+   then
+       mkdir /mnt/bigdata
+   fi   
+   if [ ! -d "/mnt/efs" ];
+   then
+       mkdir /mnt/efs
+   fi
+   
+   chown tomcat7:tomcat7 /mnt/efs
+   
+   if [ ! $(mount | grep -i '/mnt/efs') ];
+   then
+       mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 fs-88941b41.efs.eu-west-1.amazonaws.com:/ /mnt/efs
+   fi
+   
+   setUpdateState 10
+   ;&   # Fall through
+   
+10) # Installation step 10: fstab
+
+    doLogUpdateState "UPDATE-STATE 10: fstab"
+   setUpdateState 14
    sleep 2
    ;&      # Fall through
 
 
-6) # Installation step 6: Java
+14) # Installation step 14: Java
 
-   doLogUpdateState "UPDATE-STATE 6: 2.10 Java"
+   doLogUpdateState "UPDATE-STATE 14: Java"
    
    PACKAGE=openjdk-8-jdk
    if ! package_exists $PACKAGE; then
@@ -181,12 +271,12 @@ case $UPDATE_STATE in
    fi
   
 
-   setUpdateState 7
+   setUpdateState 16
    ;&      # Fall through
 
-7) # Installation step 7: nfs-common
+16) # Installation step 16: nfs-common
 
-   doLogUpdateState "UPDATE-STATE 7: 2.11 nfs common"
+   doLogUpdateState "UPDATE-STATE 16: nfs common"
    PACKAGE=nfs-common
    if ! package_exists $PACKAGE; then
       apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install $PACKAGE
@@ -194,36 +284,26 @@ case $UPDATE_STATE in
        echo "$PACKAGE already installed"
    fi
    
-   setUpdateState 8
+   setUpdateState 18
    ;&      # Fall through
 
-8) # Install Tomcat7
+18) # Install Tomcat7
 
-   doLogUpdateState "UPDATE-STATE 8: 3.1 Tomcat7 installation"
+   doLogUpdateState "UPDATE-STATE 18: Tomcat7 installation"
 
-   doLog "==> 2.8 add user tomcat7"
-   if [ ! $(cat /etc/group | grep -i 'tomcat7') ];
-   then
-      groupadd --system --gid $TOMCAT7_GROUP_ID tomcat7
-   fi
-   if [ ! $(cat /etc/passwd | grep -i 'tomcat7') ];
-   then
-      useradd  --system --uid $TOMCAT7_USER_ID --gid $TOMCAT7_GROUP_ID tomcat7
-   fi   
-   
    PACKAGE=tomcat7
    if ! package_exists $PACKAGE; then
       apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install $PACKAGE
    else
        echo "$PACKAGE already installed"
    fi
-   setUpdateState 9
+   setUpdateState 20
    ;&      # Fall through
 
 
-9) # Setup Tomcat7
+20) # Setup Tomcat7
 
-   doLogUpdateState "UPDATE-STATE 9: Tomcat7 setup"
+   doLogUpdateState "UPDATE-STATE 20: Tomcat7 setup"
    service tomcat7 stop
 
    doLog "==> Copy tomcat-server configuration files"
@@ -253,11 +333,11 @@ case $UPDATE_STATE in
    ls -s /var/log/tomcat7 /var/lib/tomcat7
    chown -h /var/lib/tomcat7
    
-   setUpdateState 10
+   setUpdateState 22
    ;&
 
-10)
-   doLogUpdateState "UPDATE-State 10: Tomcat libs"
+22)
+   doLogUpdateState "UPDATE-State 22: Tomcat libs"
 
    cp $PATH_TO_FILE/Tomcat/lib/*.jar /usr/share/tomcat7/lib/
    chown tomcat7:tomcat7 /usr/share/tomcat7/lib/cas-client-core*
@@ -265,11 +345,18 @@ case $UPDATE_STATE in
    chown tomcat7:tomcat7 /usr/share/tomcat7/lib/slf4j-api*
    chown tomcat7:tomcat7 /usr/share/tomcat7/lib/tomcat-catalina-jmx-remote*
    
-   setUpdateState 13
+   setUpdateState 25
    ;&
 
-13)
-   doLogUpdateState "UPDATE-State 13: port freigabe"
+25)
+   doLogUpdateState "UPDATE-State 25: disable tomcat runlevel"
+
+   sudo update-rc.de tomcat7 disable
+   setUpdateState 32
+   ;&
+   
+32)
+   doLogUpdateState "UPDATE-State 32: port freigabe"
    if [ ! -f "/etc/authbind/byport/80" ];
    then
       touch /etc/authbind/byport/80
@@ -288,11 +375,11 @@ case $UPDATE_STATE in
       echo "authbind for port 443 already exists"
    fi
   
-   setUpdateState 15
+   setUpdateState 34
    ;&   
 
-15)
-   doLogUpdateState "UPDATE-State 15: cron"
+34)
+   doLogUpdateState "UPDATE-State 34: cron"
 
    doLog "==> delete crontab for ubuntu"
    crontab -r || true		# ignore error message
@@ -323,36 +410,52 @@ case $UPDATE_STATE in
       echo "/etc/cron.deny already exists"
    fi
 
-   setUpdateState 17
+   setUpdateState 36
    ;&
 
-17)
-   doLogUpdateState "UPDATE-State 17: fonts"
+36)
+   doLogUpdateState "UPDATE-State 36: fonts"
 
+   if [ ! -d "/mnt/efs/data/fonts" ];
+   then
+       mkdir /mnt/efs/data/fonts
+       fc-cache -f /mnt/efs/data/fonts
+   fi
+   
    PACKAGE=ttf-mscorefonts-installer
    if ! package_exists $PACKAGE; then
       apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install $PACKAGE
    else
       echo "$PACKAGE already exists"
    fi
+   
+
   
-   setUpdateState 20
+   setUpdateState 38
    ;&
 
-20)
-   doLogUpdateState "UPDATE-State 10: mount"
+38)
+   doLogUpdateState "UPDATE-State 38: ffmpeg"
+
+   PACKAGE=ffmpeg
+   if ! package_exists $PACKAGE; then
+      apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install $PACKAGE
+   else
+      echo "$PACKAGE already exists"
+   fi
+  
+   setUpdateState 40
+   ;&
    
-   #doLog "==> Mount s3 again"
-   #sudo s3fs acentic-playground-useast1 /mnt/s3 -o use_cache=/tmp,allow_other,iam_role=`curl http://169.254.169.254/latest/meta-data/iam/security-credentials/` 
-   #sleep 2
-   #if [ ! -d "/mnt/s3/data/elb" ];
-   #then
-   #   mkdir /mnt/s3/elb
-   #fi
-   #if [ ! -f "/mnt/s3/data/elb/elb.html" ];
-   #then   
-   #    cp $PATH_TO_FILE/Tomcat/elb.html /mnt/s3/data/elb/
-   #fi
+40)
+   doLogUpdateState "UPDATE-State 40: fstab"
+   
+    if [ ! -f "/etc/fstab.001" ];
+    then
+        cp /etc/fstab /etc/fstab.001
+        cat $PATH_TO_FILE/fstab >> /etc/fstab
+    fi
+
    
    setUpdateState 99
    ;&
