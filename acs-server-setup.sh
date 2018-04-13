@@ -29,7 +29,7 @@ function setUpdateState {
 
 function doLog {
    echo $1
-   #echo $1 >> $LOGFILE
+   echo $1 >> $LOGFILE
 }
 
 function doLogUpdateState {
@@ -186,14 +186,14 @@ case $UPDATE_STATE in
    fi   
 
 
-   setUpdateState 8
+   setUpdateState 5
    ;&   # Fall through
    
 5) # Installation step 5: install s3fs
 
    doLogUpdateState "UPDATE-STATE 5: install packages for s3fs"
    
-   PACKAGE=automake autotools-dev fuse g++ git libcurl4-gnutls-dev libfuse-dev libssl-dev libxml2-dev make pkg-config
+   PACKAGE='automake autotools-dev fuse g++ git libcurl4-gnutls-dev libfuse-dev libssl-dev libxml2-dev make pkg-config'
    apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install $PACKAGE
    setUpdateState 6
    ;&   # Fall through
@@ -202,14 +202,17 @@ case $UPDATE_STATE in
 
    doLogUpdateState "UPDATE-STATE 6: make s3fs"
 
-   #if [ ! -d "/home/ubuntu/s3fs-fuse" ];
-   #then   
+   if [ ! -d "/home/ubuntu/s3fs-fuse" ];
+   then   
+       cd /home/ubuntu 
+       git clone https://github.com/s3fs-fuse/s3fs-fuse.git
        cd s3fs-fuse
        ./autogen.sh
        ./configure
        make
        make install
-   #fi
+       cd $PATH_TO_FILE
+   fi
 
    setUpdateState 7
    ;&   # Fall through
@@ -359,7 +362,7 @@ case $UPDATE_STATE in
 25)
    doLogUpdateState "UPDATE-State 25: disable tomcat runlevel"
 
-   sudo update-rc.de tomcat7 disable
+   sudo update-rc.d tomcat7 disable
    setUpdateState 32
    ;&
    

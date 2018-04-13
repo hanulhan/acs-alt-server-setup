@@ -5,4 +5,4 @@ update-state.txt
 *.gz
 *.war
 UPDATE_FINISHED
-
+.acs-server-setup.sh.swp
