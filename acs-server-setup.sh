@@ -15,7 +15,7 @@ export DEBIAN_FRONTEND=noninteractive
 export DEBIAN_PRIORITY=critical
 
 
-exec >> $LOGFILE 2>&1
+#exec >> $LOGFILE 2>&1
 
 PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:
 
@@ -104,7 +104,11 @@ case $UPDATE_STATE in
 
    # Disable the release upgrader
    doLog "==> Disabling the release upgrader"
-   sed -i.bak 's/^Prompt=.*$/Prompt=never/' /etc/update-manager/release-upgrades
+   if [ ! -f "/etc/update-manager/release-upgrades.001" ];
+   then
+      cp release-upgrades release.upgrades.001
+      sed -i.bak 's/^Prompt=.*$/Prompt=never/' /etc/update-manager/release-upgrades
+   fi
 
    doLog "==> Checking version of Ubuntu"
    . /etc/lsb-release
@@ -149,8 +153,8 @@ case $UPDATE_STATE in
    then
        echo "colorscheme desert" > /home/ubuntu/.vimrc
    fi
+  
 
-   
    setUpdateState 3
    ;&   # Fall through
 
@@ -316,7 +320,11 @@ case $UPDATE_STATE in
    cp $PATH_TO_FILE/Tomcat/conf/setenv.sh /usr/share/tomcat7/bin
    chmod +x /usr/share/tomcat7/bin/setenv.sh
    
-   mkdir /home/ubuntu/keystore
+   if [ ! -d "/home/ubuntu/keystore" ];
+   then
+      mkdir /home/ubuntu/keystore
+   fi
+
    cp $KEYSTORE_FILE /home/ubuntu/keystore
    chown -R tomcat7:tomcat7 /home/ubuntu/keystore
    
@@ -331,7 +339,7 @@ case $UPDATE_STATE in
    
    chown tomcat7:tomcat7 /var/log/tomcat7
    ls -s /var/log/tomcat7 /var/lib/tomcat7
-   chown -h /var/lib/tomcat7
+   chown -h tomcat7:tomcat7 /var/lib/tomcat7
    
    setUpdateState 22
    ;&
@@ -341,7 +349,7 @@ case $UPDATE_STATE in
 
    cp $PATH_TO_FILE/Tomcat/lib/*.jar /usr/share/tomcat7/lib/
    chown tomcat7:tomcat7 /usr/share/tomcat7/lib/cas-client-core*
-   chown tomcat7:tomcat7 /usr/share/tomcat7/lib/session-userPreferences*
+   chown tomcat7:tomcat7 /usr/share/tomcat7/lib/session-userPreference*
    chown tomcat7:tomcat7 /usr/share/tomcat7/lib/slf4j-api*
    chown tomcat7:tomcat7 /usr/share/tomcat7/lib/tomcat-catalina-jmx-remote*
    
