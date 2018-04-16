@@ -512,7 +512,7 @@ case $UPDATE_STATE in
 41)
    doLogUpdateState "UPDATE-State 41: CloudServices war"
    
-   s3 cp s3://acentic-devops-productive/CloudServices/CloudServices.war /var/lib/tomcat7/webapps
+   aws s3 cp s3://acentic-devops-productive/CloudServices/CloudServices.war /var/lib/tomcat7/webapps
    
    setUpdateState 99
    ;&
