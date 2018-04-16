@@ -230,9 +230,29 @@ case $UPDATE_STATE in
    setUpdateState 8
    ;&   # Fall through
    
-8) # Installation step 8:
 
-   doLogUpdateState "UPDATE-STATE 8: mount"
+
+8) # Installation step 16: nfs-common
+
+   doLogUpdateState "UPDATE-STATE 8: nfs common"
+   PACKAGE=nfs-common
+   if ! package_exists $PACKAGE; then
+      apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install $PACKAGE
+   else
+       echo "$PACKAGE already installed"
+   fi
+   
+   setUpdateState 12
+   ;&      # Fall through
+
+
+
+
+
+12) # Installation step 12: mount
+
+   
+   doLogUpdateState "UPDATE-STATE 12: nfs common"
 
    if [ ! -d "/mnt/data" ];
    then
@@ -254,20 +274,14 @@ case $UPDATE_STATE in
        mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 fs-88941b41.efs.eu-west-1.amazonaws.com:/ /mnt/efs
    fi
    
-   setUpdateState 10
+   setUpdateState 16
    ;&   # Fall through
    
-10) # Installation step 10: fstab
-
-    doLogUpdateState "UPDATE-STATE 10: fstab"
-   setUpdateState 14
-   sleep 2
-   ;&      # Fall through
 
 
-14) # Installation step 14: Java
+16) # Installation step 14: Java
 
-   doLogUpdateState "UPDATE-STATE 14: Java"
+   doLogUpdateState "UPDATE-STATE 16: Java"
    
    PACKAGE=openjdk-8-jdk
    if ! package_exists $PACKAGE; then
@@ -306,7 +320,7 @@ case $UPDATE_STATE in
    setUpdateState 18
    ;&      # Fall through
 
-   
+
 18) # Install Tomcat7
 
    doLogUpdateState "UPDATE-STATE 18: Tomcat7 installation"
