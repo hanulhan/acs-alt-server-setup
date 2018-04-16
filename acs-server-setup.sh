@@ -360,7 +360,7 @@ case $UPDATE_STATE in
    
    cp $PATH_TO_FILE/Tomcat/virtualHost/*.xml /var/lib/tomcat7/conf/Catalina/localhost/
 
-   if [ ! -f "/var/lib/tomcat7/webapps/ROOT/index.html" ];
+   if [ -f "/var/lib/tomcat7/webapps/ROOT/index.html" ];
    then
       rm /var/lib/tomcat7/webapps/ROOT/index.html
    fi
