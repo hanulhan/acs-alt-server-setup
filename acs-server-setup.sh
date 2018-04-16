@@ -104,9 +104,8 @@ case $UPDATE_STATE in
 
    # Disable the release upgrader
    doLog "==> Disabling the release upgrader"
-   if [ ! -f "/etc/update-manager/release-upgrades.001" ];
+   if [ ! -f "/etc/update-manager/release-upgrades.bak" ];
    then
-      cp release-upgrades release.upgrades.001
       sed -i.bak 's/^Prompt=.*$/Prompt=never/' /etc/update-manager/release-upgrades
    fi
 
@@ -291,9 +290,23 @@ case $UPDATE_STATE in
        echo "$PACKAGE already installed"
    fi
    
+   setUpdateState 17
+   ;&      # Fall through
+
+17) # Installation step 16: awscli
+
+   doLogUpdateState "UPDATE-STATE 17: awscli"
+   PACKAGE=awscli
+   if ! package_exists $PACKAGE; then
+      apt-get -q -y -o "Dpkg::Options::=--force-confdef" -o "Dpkg::Options::=--force-confold" install $PACKAGE
+   else
+       echo "$PACKAGE already installed"
+   fi
+   
    setUpdateState 18
    ;&      # Fall through
 
+   
 18) # Install Tomcat7
 
    doLogUpdateState "UPDATE-STATE 18: Tomcat7 installation"
@@ -332,8 +345,13 @@ case $UPDATE_STATE in
    chown -R tomcat7:tomcat7 /home/ubuntu/keystore
    
    cp $PATH_TO_FILE/Tomcat/virtualHost/*.xml /var/lib/tomcat7/conf/Catalina/localhost/
+
+   if [ ! -f "/var/lib/tomcat7/webapps/ROOT/index.html" ];
+   then
+      rm /var/lib/tomcat7/webapps/ROOT/index.html
+   fi
    
-   echo '<% response.sendRedirect("/ACS"); %>' >  /var/lib/tomcat7/webapps/ROOT/index.jsp   
+   echo '<% response.sendRedirect("/CloudServices"); %>' >  /var/lib/tomcat7/webapps/ROOT/index.jsp   
 
    if [ ! -d "/var/log/tomcat7" ];
    then
@@ -385,7 +403,12 @@ case $UPDATE_STATE in
    else
       echo "authbind for port 443 already exists"
    fi
-  
+
+   if [ ! -f "/etc/default/tomcat7.bak" ];
+   then
+      sed -i.bak 's/^AUTHBIND=.*$/AUTHBIND=yes/' /etc/default/tomcat7
+   fi
+   
    setUpdateState 34
    ;&   
 
@@ -468,6 +491,14 @@ case $UPDATE_STATE in
         cat $PATH_TO_FILE/fstab >> /etc/fstab
     fi
 
+   
+   setUpdateState 99
+   ;&
+   
+41)
+   doLogUpdateState "UPDATE-State 41: CloudServices war"
+   
+   s3 cp s3://acentic-devops-productive/CloudServices/CloudServices.war /var/lib/tomcat7/webapps
    
    setUpdateState 99
    ;&
