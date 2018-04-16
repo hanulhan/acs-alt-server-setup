@@ -219,6 +219,19 @@ case $UPDATE_STATE in
 7) # Installation step 7:
 
    doLogUpdateState "UPDATE-STATE 7: create user and group for tomcat7"
+
+
+   # if the group id and uid already exists, change it
+   if [ $(cat /etc/group | grep -i $TOMCAT7_GROUP_ID) ];
+   then
+      groupmod -g 130 messagebus
+   fi
+   if [ $(cat /etc/passwd | grep -i $TOMCAT7_USER_ID) ];
+   then
+      usermod -u 130 lxd
+   fi
+
+
    if [ ! $(cat /etc/group | grep -i 'tomcat7') ];
    then
       groupadd --system --gid $TOMCAT7_GROUP_ID tomcat7
