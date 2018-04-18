@@ -6,7 +6,7 @@ PATH_TO_SCRIPT=$PATH_TO_FILE/acs-server-setup.sh
 LOGFILE=$PATH_TO_FILE/acs-server-setup.log
 UPDATE_STATE_FILE=$PATH_TO_FILE/update-state.txt
 KEYSTORE_FILE=$PATH_TO_FILE/Tomcat/acentic.neu.keystore
-WAR_FILE=ACS.war
+WAR_FILE=CloudServices.war
 TOMCAT7_USER_ID=106
 TOMCAT7_GROUP_ID=111
 
@@ -85,6 +85,11 @@ else
 fi
 
 
+if [[ $UPDATE_STATE == 200 ]]; 
+then
+    echo "Error occured in previous run. Restart from scratch"
+    setSetupState 1
+fi
 
 
 
@@ -220,27 +225,33 @@ case $UPDATE_STATE in
 
    doLogUpdateState "UPDATE-STATE 7: create user and group for tomcat7"
 
+   if [[ $DISTRIB_RELEASE == 16.04 ]]; then
+       # if the group id and uid already exists, change it
+       if [ $(cat /etc/group | grep -i $TOMCAT7_GROUP_ID) ];
+       then
+          groupmod -g 130 messagebus
+       fi
+       if [ $(cat /etc/passwd | grep -i $TOMCAT7_USER_ID) ];
+       then
+          usermod -u 130 lxd
+       fi
 
-   # if the group id and uid already exists, change it
-   if [ $(cat /etc/group | grep -i $TOMCAT7_GROUP_ID) ];
-   then
-      groupmod -g 130 messagebus
-   fi
-   if [ $(cat /etc/passwd | grep -i $TOMCAT7_USER_ID) ];
-   then
-      usermod -u 130 lxd
+
+       if [ ! $(cat /etc/group | grep -i 'tomcat7') ];
+       then
+          groupadd --system --gid $TOMCAT7_GROUP_ID tomcat7
+       fi
+       if [ ! $(cat /etc/passwd | grep -i 'tomcat7') ];
+       then
+          useradd  --system --uid $TOMCAT7_USER_ID --gid $TOMCAT7_GROUP_ID tomcat7
+       fi
+       setUpdateState 8
+   else
+      echo "Not $DISTRIB_RELEASE"
+      setUpdateState 200
    fi
 
 
-   if [ ! $(cat /etc/group | grep -i 'tomcat7') ];
-   then
-      groupadd --system --gid $TOMCAT7_GROUP_ID tomcat7
-   fi
-   if [ ! $(cat /etc/passwd | grep -i 'tomcat7') ];
-   then
-      useradd  --system --uid $TOMCAT7_USER_ID --gid $TOMCAT7_GROUP_ID tomcat7
-   fi
-   setUpdateState 8
    ;&   # Fall through
    
 
@@ -292,9 +303,9 @@ case $UPDATE_STATE in
    
 
 
-16) # Installation step 14: Java
+14) # Installation step 14: Java
 
-   doLogUpdateState "UPDATE-STATE 16: Java"
+   doLogUpdateState "UPDATE-STATE 14: Java"
    
    PACKAGE=openjdk-8-jdk
    if ! package_exists $PACKAGE; then
@@ -320,7 +331,7 @@ case $UPDATE_STATE in
    setUpdateState 17
    ;&      # Fall through
 
-17) # Installation step 16: awscli
+17) # Installation step 17: awscli
 
    doLogUpdateState "UPDATE-STATE 17: awscli"
    PACKAGE=awscli
@@ -519,24 +530,6 @@ case $UPDATE_STATE in
     fi
 
    
-   setUpdateState 99
-   ;&
-   
-41)
-   doLogUpdateState "UPDATE-State 41: CloudServices war"
-   
-   aws s3 cp s3://acentic-devops-productive/CloudServices/CloudServices.war /var/lib/tomcat7/webapps
-   
-   setUpdateState 99
-   ;&
-   
-99)
-   doLogUpdateState "UPDATE-State 99: Start tomcat"
-   
-   doLog "==> copy war and start tomcat"
-   #cp /home/ubuntu/$WAR_FILE /var/lib/tomcat7/webapps
-   #sudo chown tomcat7:tomcat7 /var/lib/tomcat7/webapps/$WAR_FILE
-   #service tomcat7 start
    setUpdateState 100
    ;&
    
@@ -544,8 +537,18 @@ case $UPDATE_STATE in
 100)
 
    touch $PATH_TO_FILE/UPDATE_FINISHED
-   ;;
+   doLogUpdateState "UPDATE-State 100: CloudServices war"
+   
+   aws s3 cp s3://acentic-devops-productive/CloudServices/CloudServices.war /var/lib/tomcat7/webapps
 
+   sudo chown tomcat7:tomcat7 /var/lib/tomcat7/webapps/$WAR_FILE
+   #service tomcat7 start
+
+   ;;
+   
+200)
+   echo "Error occured"
+   ;;    
 esac
 
 
