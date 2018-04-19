@@ -444,7 +444,7 @@ case $UPDATE_STATE in
 
    if [ ! -f "/etc/default/tomcat7.bak" ];
    then
-      sed -i.bak 's/^AUTHBIND=.*$/AUTHBIND=yes/' /etc/default/tomcat7
+      sed -i.bak 's/^#AUTHBIND=.*$/AUTHBIND=yes/' /etc/default/tomcat7
    fi
    
    setUpdateState 34
